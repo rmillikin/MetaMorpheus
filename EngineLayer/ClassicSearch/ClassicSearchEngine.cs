@@ -46,11 +46,14 @@ namespace EngineLayer.ClassicSearch
                 myLocks[i] = new object();
             }
 
-            Status("Performing classic search...");
+            // for top-down searches, deconvolute the MS2 spectrum instead of assuming z=1 for fragments
+            bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
 
+            Status("Performing classic search...");
+            
             if (Proteins.Any())
             {
-                Parallel.ForEach(Partitioner.Create(0, Proteins.Count), new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile }, (partitionRange, loopState) =>
+                Parallel.ForEach(Partitioner.Create(0, Proteins.Count), new ParallelOptions { MaxDegreeOfParallelism = 1 }, (partitionRange, loopState) =>
                 {
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
                     {
@@ -68,7 +71,7 @@ namespace EngineLayer.ClassicSearch
 
                             foreach (ScanWithIndexAndNotchInfo scan in GetAcceptableScans(peptide.MonoisotopicMass, SearchMode))
                             {
-                                var matchedIons = MatchFragmentIons(scan.TheScan.TheScan.MassSpectrum, peptideTheorProducts, commonParameters);
+                                var matchedIons = MatchFragmentIons(scan.TheScan.TheScan.MassSpectrum, peptideTheorProducts, commonParameters, deconSearch);
 
                                 if (commonParameters.AddCompIons)
                                 {
@@ -138,6 +141,7 @@ namespace EngineLayer.ClassicSearch
             foreach (PeptideSpectralMatch psm in PeptideSpectralMatches.Where(p => p != null))
             {
                 psm.ResolveAllAmbiguities();
+                MetaMorpheusEngine.DoNewFdr(psm, ArrayOfSortedMS2Scans.First(p => p.OneBasedScanNumber == psm.ScanNumber).TheScan, commonParameters);
             }
             
             return new MetaMorpheusEngineResults(this);

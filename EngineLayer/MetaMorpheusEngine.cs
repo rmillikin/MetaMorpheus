@@ -6,6 +6,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
+using Proteomics;
+using System.Text;
 
 namespace EngineLayer
 {
@@ -36,7 +39,9 @@ namespace EngineLayer
         public static event EventHandler<StringEventArgs> WarnHandler;
 
         public static event EventHandler<ProgressEventArgs> OutProgressHandler;
-        
+
+        private static Dictionary<string, Modification> fds = new Dictionary<string, Modification>();
+
         public static double CalculatePeptideScore(MsDataScan thisScan, List<MatchedFragmentIon> matchedFragmentIons, double maximumMassThatFragmentIonScoreIsDoubled)
         {
             // scoring if some fragments get doubled for scoring purposes
@@ -64,8 +69,8 @@ namespace EngineLayer
             // normal scoring
             return matchedFragmentIons.Count + (matchedFragmentIons.Sum(v => v.Intensity) / thisScan.TotalIonCurrent);
         }
-        
-        public static List<MatchedFragmentIon> MatchFragmentIons(MzSpectrum spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters)
+
+        public static List<MatchedFragmentIon> MatchFragmentIons(MzSpectrum spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters, bool deconvolutionSearch = false)
         {
             var matchedFragmentIons = new List<MatchedFragmentIon>();
             var alreadyCountedMzs = new HashSet<double>();
@@ -74,6 +79,11 @@ namespace EngineLayer
             if (spectrum.Size == 0)
             {
                 return matchedFragmentIons;
+            }
+
+            if (deconvolutionSearch)
+            {
+                return MatchFragmentIonsDeconvolution(spectrum, theoreticalProducts, commonParameters);
             }
 
             //search for ions in the spectrum
@@ -173,6 +183,118 @@ namespace EngineLayer
         }
 
         protected abstract MetaMorpheusEngineResults RunSpecific();
+
+        private static Random random = new Random();
+        public static void DoNewFdr(PeptideSpectralMatch psm, MsDataScan scan, CommonParameters commonParameters)
+        {
+            int numDatabases = 100;
+            var peptide = psm.BestMatchingPeptideWithSetMods.First().Pwsm;
+
+            double numDecoys = 0;
+            for (int i = 0; i < numDatabases; i++)
+            {
+                string randomizedSequence = ShuffleString(peptide.BaseSequence, random);
+
+                while (randomizedSequence == peptide.BaseSequence)
+                {
+                    randomizedSequence = ShuffleString(peptide.BaseSequence, random);
+                }
+
+                PeptideWithSetModifications randomizedPeptide = new PeptideWithSetModifications(randomizedSequence, fds, peptide.NumFixedMods, peptide.DigestionParams, peptide.Protein, int.MinValue, int.MinValue, peptide.MissedCleavages, peptide.PeptideDescription);
+                var theorFragments = randomizedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+                var matchedFragments = MatchFragmentIons(scan.MassSpectrum, theorFragments, commonParameters);
+
+                double decoyScore = CalculatePeptideScore(scan, matchedFragments, 0);
+                if (decoyScore >= psm.Score)
+                {
+                    numDecoys++;
+                }
+                if (commonParameters.CalculateEValue)
+                {
+                    psm.AllScores.Add(decoyScore);
+                }
+            }
+
+            double percentDecoy = numDecoys / numDatabases;
+            psm.percentDecoy = percentDecoy;
+        }
+
+        private static string ShuffleString(string start, Random r)
+        {
+            StringBuilder s = new StringBuilder();
+            var shuffleablePart = start.Substring(0, start.Length - 1).ToArray();
+
+            int ind = r.Next(0, shuffleablePart.Length - 1);
+
+            int startnum = shuffleablePart.Length;
+
+            while (shuffleablePart.Any(p => p != '-'))
+            {
+                ind = r.Next(0, shuffleablePart.Length);
+
+                if (shuffleablePart[ind] != '-')
+                {
+                    s.Append(shuffleablePart[ind]);
+                }
+                shuffleablePart[ind] = '-';
+            }
+            s.Append(start.Last());
+
+            return s.ToString();
+        }
+
+        private static void fff()
+        {
+            foreach (var mod in GlobalVariables.AllModsKnown)
+            {
+                if (!fds.ContainsKey(mod.IdWithMotif))
+                {
+                    fds.Add(mod.IdWithMotif, mod);
+                }
+            }
+        }
+
+        private static List<MatchedFragmentIon> MatchFragmentIonsDeconvolution(MzSpectrum spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters)
+        {
+            var matchedFragmentIons = new List<MatchedFragmentIon>();
+            double ms2DeconvolutionPpmTolerance = 5.0;
+            int minZ = 1;
+            int maxZ = 10;
+
+            // deconvolute the scan
+            var isotopicEnvelopes = spectrum.Deconvolute(spectrum.Range, minZ, maxZ,
+                ms2DeconvolutionPpmTolerance, commonParameters.DeconvolutionIntensityRatio).ToArray();
+
+            // return empty list of matched fragments if there are no deconvoluted isotopic envelopes
+            if (!isotopicEnvelopes.Any())
+            {
+                return matchedFragmentIons;
+            }
+
+            foreach (Product product in theoreticalProducts)
+            {
+                // unknown fragment mass; this only happens rarely for sequences with unknown amino acids
+                if (double.IsNaN(product.NeutralMass))
+                {
+                    continue;
+                }
+
+                // get the first isotopic envelope within the ppm tolerance
+                // if there is no envelope within the desired ppm tolerance, "bestEnvelope" will be null
+                IsotopicEnvelope bestEnvelope = isotopicEnvelopes.FirstOrDefault(p =>
+                    commonParameters.ProductMassTolerance.Within(p.monoisotopicMass, product.NeutralMass));
+
+                // add the matched fragment
+                if (bestEnvelope != null)
+                {
+                    matchedFragmentIons.Add(new MatchedFragmentIon(product,
+                        bestEnvelope.monoisotopicMass.ToMz(bestEnvelope.charge),
+                        bestEnvelope.totalIntensity, bestEnvelope.charge));
+                }
+            }
+
+            return matchedFragmentIons;
+        }
 
         private void StartingSingleEngine()
         {

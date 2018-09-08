@@ -72,8 +72,8 @@ namespace EngineLayer.FdrAnalysis
                 }
             }
 
-            int cumulative_target = 0;
-            int cumulative_decoy = 0;
+            double cumulative_target = 0;
+            double cumulative_decoy = 0;
 
             //Calculate delta scores for the psms (regardless of if we are using them)
             foreach (PeptideSpectralMatch psm in Psms)
@@ -106,8 +106,8 @@ namespace EngineLayer.FdrAnalysis
             }
 
             //set up arrays for local FDRs
-            int[] cumulative_target_per_notch = new int[MassDiffAcceptorNumNotches + 1];
-            int[] cumulative_decoy_per_notch = new int[MassDiffAcceptorNumNotches + 1];
+            double[] cumulative_target_per_notch = new double[MassDiffAcceptorNumNotches + 1];
+            double[] cumulative_decoy_per_notch = new double[MassDiffAcceptorNumNotches + 1];
 
             //Assign FDR values to PSMs
             for (int i = 0; i < Psms.Count; i++)
@@ -116,20 +116,25 @@ namespace EngineLayer.FdrAnalysis
                 if (GlobalVariables.StopLoops) { break; }
 
                 var psm = Psms[i];
-                var isDecoy = psm.IsDecoy;
-                int notch = psm.Notch ?? MassDiffAcceptorNumNotches;
-                if (isDecoy)
-                {
-                    cumulative_decoy++;
-                    cumulative_decoy_per_notch[notch]++;
-                }
-                else
-                {
-                    cumulative_target++;
-                    cumulative_target_per_notch[notch]++;
-                }
+                double decoyPercent = psm.percentDecoy;
 
-                double temp_q_value = (double)cumulative_decoy / cumulative_target;
+                //var isDecoy = psm.IsDecoy;
+                int notch = psm.Notch ?? MassDiffAcceptorNumNotches;
+                //if (isDecoy)
+                //{
+                cumulative_decoy += decoyPercent;
+                cumulative_target += (1 - decoyPercent);
+
+                cumulative_decoy_per_notch[notch] += decoyPercent;
+                cumulative_target_per_notch[notch] += (1 - decoyPercent);
+                //}
+                //else
+                //{
+                //    cumulative_target++;
+                //    cumulative_target_per_notch[notch]++;
+                //}
+
+                double temp_q_value = cumulative_decoy / cumulative_target;
                 double temp_q_value_for_notch = (double)cumulative_decoy_per_notch[notch] / cumulative_target_per_notch[notch];
 
                 double maximumLikelihood = 0;
@@ -141,7 +146,7 @@ namespace EngineLayer.FdrAnalysis
                     eScore = -Math.Log(eValue, 10);
                 }
 
-                psm.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, cumulative_target_per_notch[notch], cumulative_decoy_per_notch[notch], temp_q_value_for_notch, maximumLikelihood, eValue, eScore, CalculateEValue);
+                psm.SetFdrValues((int)cumulative_target, (int)cumulative_decoy, temp_q_value, (int)cumulative_target_per_notch[notch], (int)cumulative_decoy_per_notch[notch], temp_q_value_for_notch, maximumLikelihood, eValue, eScore, CalculateEValue);
             }
 
             //Populate min qValues

@@ -88,6 +88,7 @@ namespace EngineLayer
         public List<double> AllScores { get; set; }
         public List<MatchedFragmentIon> MatchedFragmentIons { get; protected set; }
         public Dictionary<PeptideWithSetModifications, List<MatchedFragmentIon>> PeptidesToMatchingFragments { get; private set; }
+        public double percentDecoy;
 
         /// <summary>
         /// Used for Percolator output
