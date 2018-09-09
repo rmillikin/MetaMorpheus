@@ -40,6 +40,15 @@ namespace EngineLayer.ModernSearch
         {
             double progress = 0;
             int oldPercentProgress = 0;
+
+            // for top-down searches, deconvolute the MS2 spectrum instead of assuming z=1 for fragments
+            bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
+            if (deconSearch)
+            {
+                Status("Deconvoluting MS2 scans...");
+                DeconvoluteAndStoreAllMs2(ListOfSortedms2Scans, commonParameters);
+            }
+
             ReportProgress(new ProgressEventArgs(oldPercentProgress, "Performing modern search... " + CurrentPartition + "/" + commonParameters.TotalPartitions, nestedIds));
 
             byte byteScoreCutoff = (byte)commonParameters.ScoreCutoff;
@@ -100,7 +109,7 @@ namespace EngineLayer.ModernSearch
                         PeptideWithSetModifications peptide = PeptideIndex[id];
 
                         List<Product> peptideTheorProducts = peptide.Fragment(commonParameters.DissociationType, FragmentationTerminus.Both).ToList();
-                        List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan, peptideTheorProducts, commonParameters, true);
+                        List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan, peptideTheorProducts, commonParameters, deconSearch);
 
                         if (commonParameters.AddCompIons)
                         {
@@ -134,7 +143,7 @@ namespace EngineLayer.ModernSearch
 
                     // report search progress
                     progress++;
-                    var percentProgress = (int)((progress / ListOfSortedms2Scans.Length) * 100);
+                    int percentProgress = (int)((progress / ListOfSortedms2Scans.Length) * 100);
 
                     if (percentProgress > oldPercentProgress)
                     {
@@ -157,6 +166,10 @@ namespace EngineLayer.ModernSearch
             }
 
             var t = PeptideSpectralMatches.Where(p => p != null).ToList();
+            int fdrPercentProgress = 0;
+            double fdrProgress = 0;
+            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+            
             Parallel.ForEach(Partitioner.Create(0, t.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
                 (partitionRange, loopState) =>
@@ -165,10 +178,18 @@ namespace EngineLayer.ModernSearch
                     {
                         t[i].ResolveAllAmbiguities();
                         DoNewFdr(t[i], ListOfSortedms2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters);
+
+                        fdrProgress++;
+                        int percentProgress = (int)(fdrProgress / t.Count * 100);
+                        if (percentProgress > fdrPercentProgress)
+                        {
+                            fdrPercentProgress = percentProgress;
+                            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+                        }
                     }
                 });
 
-            scanToEnvelopes.Clear();
+            //scanToEnvelopes.Clear();
 
             return new MetaMorpheusEngineResults(this);
         }
@@ -176,24 +197,7 @@ namespace EngineLayer.ModernSearch
 
         public static List<int> GetBinsToSearch(Ms2ScanWithSpecificMass scan, CommonParameters commonParameters, List<int>[] fragmentIndex)
         {
-            double ms2DeconvolutionPpmTolerance = 5.0;
-            int minZ = 1;
-            int maxZ = 10;
-            
-            if (!scanToEnvelopes.TryGetValue(scan.OneBasedScanNumber, out var isotopicEnvelopes))
-            {
-                // deconvolute the scan
-                isotopicEnvelopes = scan.TheScan.MassSpectrum.Deconvolute(scan.TheScan.MassSpectrum.Range, minZ, maxZ,
-                    ms2DeconvolutionPpmTolerance, commonParameters.DeconvolutionIntensityRatio).ToArray();
-
-                lock (scanToEnvelopes)
-                {
-                    if (!scanToEnvelopes.ContainsKey(scan.OneBasedScanNumber))
-                    {
-                        scanToEnvelopes.Add(scan.OneBasedScanNumber, isotopicEnvelopes);
-                    }
-                }
-            }
+            var isotopicEnvelopes = scanToEnvelopes[scan.OneBasedScanNumber];
 
             //int obsPreviousFragmentCeilingMz = 0;
             List<int> binsToSearch = new List<int>();

@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using SharpLearning.Containers.Extensions;
 
 namespace TaskLayer
 {
@@ -275,7 +276,15 @@ namespace TaskLayer
                     break;
 
                 case "interval":
-                    IEnumerable<DoubleRange> doubleRanges = Array.ConvertAll(split[2].Split(','), b => new DoubleRange(double.Parse(b.Trim(new char[] { '[', ']' }).Split(';')[0], CultureInfo.InvariantCulture), double.Parse(b.Trim(new char[] { '[', ']' }).Split(';')[1], CultureInfo.InvariantCulture)));
+                    var ok = split[2].Split(',');
+                    for (int i = 0; i < ok.Length; i++)
+                    {
+                        ok[i] = ok[i].Trim(new char[] { '[', ']' });
+                        ok[i] = ok[i].Trim();
+                    }
+                    DoubleRange d = new DoubleRange(double.Parse(ok[0]), double.Parse(ok[1]));
+
+                    IEnumerable<DoubleRange> doubleRanges = new List<DoubleRange> {d};
                     ye = new IntervalMassDiffAcceptor(split[0], doubleRanges);
                     break;
 

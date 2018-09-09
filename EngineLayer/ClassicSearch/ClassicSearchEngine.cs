@@ -49,6 +49,12 @@ namespace EngineLayer.ClassicSearch
             // for top-down searches, deconvolute the MS2 spectrum instead of assuming z=1 for fragments
             bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
 
+            if (deconSearch)
+            {
+                Status("Deconvoluting MS2 scans...");
+                DeconvoluteAndStoreAllMs2(ArrayOfSortedMS2Scans, commonParameters);
+            }
+
             Status("Performing classic search...");
 
             if (Proteins.Any())
@@ -150,7 +156,7 @@ namespace EngineLayer.ClassicSearch
                     }
                 });
             
-            scanToEnvelopes.Clear();
+            //scanToEnvelopes.Clear();
 
             return new MetaMorpheusEngineResults(this);
         }
