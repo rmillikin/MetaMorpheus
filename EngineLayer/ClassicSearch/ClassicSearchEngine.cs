@@ -50,10 +50,10 @@ namespace EngineLayer.ClassicSearch
             bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
 
             Status("Performing classic search...");
-            
+
             if (Proteins.Any())
             {
-                Parallel.ForEach(Partitioner.Create(0, Proteins.Count), new ParallelOptions { MaxDegreeOfParallelism = 1 }, (partitionRange, loopState) =>
+                Parallel.ForEach(Partitioner.Create(0, Proteins.Count), new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile }, (partitionRange, loopState) =>
                 {
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
                     {
@@ -71,12 +71,12 @@ namespace EngineLayer.ClassicSearch
 
                             foreach (ScanWithIndexAndNotchInfo scan in GetAcceptableScans(peptide.MonoisotopicMass, SearchMode))
                             {
-                                var matchedIons = MatchFragmentIons(scan.TheScan.TheScan.MassSpectrum, peptideTheorProducts, commonParameters, deconSearch);
+                                var matchedIons = MatchFragmentIons(scan.TheScan.TheScan, peptideTheorProducts, commonParameters, deconSearch);
 
                                 if (commonParameters.AddCompIons)
                                 {
                                     MzSpectrum complementarySpectrum = GenerateComplementarySpectrum(scan.TheScan.TheScan.MassSpectrum, scan.TheScan.PrecursorMass, commonParameters.DissociationType);
-                                    matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters));
+                                    //matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters));
                                 }
 
                                 double thisScore = CalculatePeptideScore(scan.TheScan.TheScan, matchedIons, 0);
@@ -138,12 +138,20 @@ namespace EngineLayer.ClassicSearch
                 }
             }
 
-            foreach (PeptideSpectralMatch psm in PeptideSpectralMatches.Where(p => p != null))
-            {
-                psm.ResolveAllAmbiguities();
-                MetaMorpheusEngine.DoNewFdr(psm, ArrayOfSortedMS2Scans.First(p => p.OneBasedScanNumber == psm.ScanNumber).TheScan, commonParameters);
-            }
+            var t = PeptideSpectralMatches.Where(p => p != null).ToList();
+            Parallel.ForEach(Partitioner.Create(0, t.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
+                (partitionRange, loopState) =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        t[i].ResolveAllAmbiguities();
+                        DoNewFdr(t[i], ArrayOfSortedMS2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters);
+                    }
+                });
             
+            scanToEnvelopes.Clear();
+
             return new MetaMorpheusEngineResults(this);
         }
 

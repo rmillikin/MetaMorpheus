@@ -140,7 +140,7 @@ namespace EngineLayer.FdrAnalysis
                 double maximumLikelihood = 0;
                 double eValue = 0;
                 double eScore = 0;
-                if (CalculateEValue)
+                //if (CalculateEValue)
                 {
                     eValue = GetEValue(psm, globalMeanCount, globalMeanScore, out maximumLikelihood);
                     eScore = -Math.Log(eValue, 10);
@@ -182,16 +182,14 @@ namespace EngineLayer.FdrAnalysis
             }
         }
 
-        private static double GetEValue(PeptideSpectralMatch psm, int globalMeanCount, double globalMeanScore, out double maximumLikelihood)
+        public static double GetEValue(PeptideSpectralMatch psm, int globalMeanCount, double globalMeanScore, out double maximumLikelihood)
         {
             // get all of the PSM's scores for all hits, sort them, then remove the last value (the best score)
-            List<double> scoresWithoutBestHit = new List<double>();
-            scoresWithoutBestHit.AddRange(psm.AllScores);
-            scoresWithoutBestHit.Sort();
+            List<double> scoresWithoutBestHit = psm.AllScores.OrderBy(v => v).ToList();
 
             if (scoresWithoutBestHit.Any())
             {
-                scoresWithoutBestHit.RemoveAt(scoresWithoutBestHit.Count - 1);
+                scoresWithoutBestHit.Remove(scoresWithoutBestHit.Last());
             }
 
             // this is the "default" case for when there are no scores except the best hit

@@ -183,7 +183,7 @@ namespace EngineLayer.CrosslinkSearch
         {
             PeptideWithSetModifications peptide = theScanBestPeptide.First().BestPeptide;
             var products = peptide.Fragment(DissociationType, FragmentationTerminus.Both).ToList();
-            var matchedFragmentIons = MatchFragmentIons(theScan.TheScan.MassSpectrum, products, commonParameters);
+            var matchedFragmentIons = MatchFragmentIons(theScan.TheScan, products, commonParameters);
 
             List<CrosslinkSpectralMatch> bestPsmCrossList = new List<CrosslinkSpectralMatch>();
             CrosslinkSpectralMatch bestPsmCross = null;
@@ -272,7 +272,7 @@ namespace EngineLayer.CrosslinkSearch
                             // score beta peptide
                             PeptideWithSetModifications betaPeptide = theScanBestPeptide[inx].BestPeptide;
                             var betaProducts = betaPeptide.Fragment(DissociationType, FragmentationTerminus.Both).ToList();
-                            var betaMatchedIons = MatchFragmentIons(theScan.TheScan.MassSpectrum, betaProducts, commonParameters);
+                            var betaMatchedIons = MatchFragmentIons(theScan.TheScan, betaProducts, commonParameters);
 
                             var psmCrossBeta = new CrosslinkSpectralMatch(theScanBestPeptide[inx].BestPeptide, theScanBestPeptide[inx].BestNotch, theScanBestPeptide[inx].BestScore, i, theScan, commonParameters.DigestionParams, betaMatchedIons);
 

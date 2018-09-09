@@ -100,12 +100,12 @@ namespace EngineLayer.ModernSearch
                         PeptideWithSetModifications peptide = PeptideIndex[id];
 
                         List<Product> peptideTheorProducts = peptide.Fragment(commonParameters.DissociationType, FragmentationTerminus.Both).ToList();
-                        List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan.MassSpectrum, peptideTheorProducts, commonParameters);
+                        List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan, peptideTheorProducts, commonParameters, true);
 
                         if (commonParameters.AddCompIons)
                         {
                             MzSpectrum complementarySpectrum = GenerateComplementarySpectrum(scan.TheScan.MassSpectrum, scan.PrecursorMass, commonParameters.DissociationType);
-                            matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters));
+                            //matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters));
                         }
                         
                         double thisScore = CalculatePeptideScore(scan.TheScan, matchedIons, 0);
@@ -156,31 +156,60 @@ namespace EngineLayer.ModernSearch
                 }
             }
 
-            foreach (PeptideSpectralMatch psm in PeptideSpectralMatches.Where(p => p != null))
-            {
-                psm.ResolveAllAmbiguities();
-            }
+            var t = PeptideSpectralMatches.Where(p => p != null).ToList();
+            Parallel.ForEach(Partitioner.Create(0, t.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
+                (partitionRange, loopState) =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        t[i].ResolveAllAmbiguities();
+                        DoNewFdr(t[i], ListOfSortedms2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters);
+                    }
+                });
+
+            scanToEnvelopes.Clear();
 
             return new MetaMorpheusEngineResults(this);
         }
 
+
         public static List<int> GetBinsToSearch(Ms2ScanWithSpecificMass scan, CommonParameters commonParameters, List<int>[] fragmentIndex)
         {
-            int obsPreviousFragmentCeilingMz = 0;
+            double ms2DeconvolutionPpmTolerance = 5.0;
+            int minZ = 1;
+            int maxZ = 10;
+            
+            if (!scanToEnvelopes.TryGetValue(scan.OneBasedScanNumber, out var isotopicEnvelopes))
+            {
+                // deconvolute the scan
+                isotopicEnvelopes = scan.TheScan.MassSpectrum.Deconvolute(scan.TheScan.MassSpectrum.Range, minZ, maxZ,
+                    ms2DeconvolutionPpmTolerance, commonParameters.DeconvolutionIntensityRatio).ToArray();
+
+                lock (scanToEnvelopes)
+                {
+                    if (!scanToEnvelopes.ContainsKey(scan.OneBasedScanNumber))
+                    {
+                        scanToEnvelopes.Add(scan.OneBasedScanNumber, isotopicEnvelopes);
+                    }
+                }
+            }
+
+            //int obsPreviousFragmentCeilingMz = 0;
             List<int> binsToSearch = new List<int>();
-            foreach (var peakMz in scan.TheScan.MassSpectrum.XArray)
+            foreach (var peakMz in isotopicEnvelopes)
             {
                 // assume charge state 1 to calculate mass tolerance
-                double experimentalFragmentMass = ClassExtensions.ToMass(peakMz, 1);
+                double experimentalFragmentMass = peakMz.monoisotopicMass;
 
                 // get theoretical fragment bins within mass tolerance
                 int obsFragmentFloorMass = (int)Math.Floor((commonParameters.ProductMassTolerance.GetMinimumValue(experimentalFragmentMass)) * FragmentBinsPerDalton);
                 int obsFragmentCeilingMass = (int)Math.Ceiling((commonParameters.ProductMassTolerance.GetMaximumValue(experimentalFragmentMass)) * FragmentBinsPerDalton);
 
                 // prevents double-counting peaks close in m/z and lower-bound out of range exceptions
-                if (obsFragmentFloorMass < obsPreviousFragmentCeilingMz)
-                    obsFragmentFloorMass = obsPreviousFragmentCeilingMz;
-                obsPreviousFragmentCeilingMz = obsFragmentCeilingMass + 1;
+                //if (obsFragmentFloorMass < obsPreviousFragmentCeilingMz)
+                //    obsFragmentFloorMass = obsPreviousFragmentCeilingMz;
+                //obsPreviousFragmentCeilingMz = obsFragmentCeilingMass + 1;
 
                 // prevent upper-bound index out of bounds errors;
                 // lower-bound is handled by the previous "if (obsFragmentFloorMass < obsPreviousFragmentCeilingMz)" statement

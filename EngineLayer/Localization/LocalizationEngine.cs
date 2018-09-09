@@ -59,12 +59,12 @@ namespace EngineLayer.Localization
                     // this is the list of theoretical products for this peptide with mass-difference on this residue
                     List<Product> productsWithLocalizedMassDiff = peptideWithLocalizedMassDiff.Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus).ToList();
 
-                    var matchedIons = MatchFragmentIons(scan.MassSpectrum, productsWithLocalizedMassDiff, commonParameters);
+                    var matchedIons = MatchFragmentIons(scan, productsWithLocalizedMassDiff, commonParameters);
 
                     if (commonParameters.AddCompIons)
                     {
                         MzSpectrum complementarySpectrum = GenerateComplementarySpectrum(scan.MassSpectrum, psm.ScanPrecursorMass, commonParameters.DissociationType);
-                        matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, productsWithLocalizedMassDiff, commonParameters));
+                        //matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, productsWithLocalizedMassDiff, commonParameters));
                     }
 
                     // score when the mass-diff is on this residue

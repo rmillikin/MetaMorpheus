@@ -505,6 +505,7 @@ namespace EngineLayer
             string qValueNotch = " ";
             string eValue = " ";
             string eScore = " ";
+            string percentDecoy = " ";
             if (peptide != null && peptide.FdrInfo != null)
             {
                 cumulativeTarget = peptide.FdrInfo.CumulativeTarget.ToString(CultureInfo.InvariantCulture);
@@ -513,11 +514,12 @@ namespace EngineLayer
                 cumulativeTargetNotch = peptide.FdrInfo.CumulativeTargetNotch.ToString(CultureInfo.InvariantCulture);
                 cumulativeDecoyNotch = peptide.FdrInfo.CumulativeDecoyNotch.ToString(CultureInfo.InvariantCulture);
                 qValueNotch = peptide.FdrInfo.QValueNotch.ToString("F6", CultureInfo.InvariantCulture);
-                if (peptide.FdrInfo.CalculateEValue)
+                //if (peptide.FdrInfo.CalculateEValue)
                 {
                     eValue = peptide.FdrInfo.EValue.ToString("F6", CultureInfo.InvariantCulture);
                     eScore = peptide.FdrInfo.EScore.ToString("F6", CultureInfo.InvariantCulture);
                 }
+                percentDecoy = peptide.percentDecoy.ToString("F6", CultureInfo.InvariantCulture);
             }
             s["Cumulative Target"] = cumulativeTarget;
             s["Cumulative Decoy"] = cumulativeDecoy;
@@ -527,6 +529,7 @@ namespace EngineLayer
             s["QValue Notch"] = qValueNotch;
             s["eValue"] = eValue;
             s["eScore"] = eScore;
+            s["DecoyPercent"] = percentDecoy;
         }
     }
 }
