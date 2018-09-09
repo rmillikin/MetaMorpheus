@@ -49,6 +49,8 @@ namespace EngineLayer.Localization
                 PeptideWithSetModifications peptide = psm.BestMatchingPeptideWithSetMods.First().Pwsm;
                 double massDifference = psm.ScanPrecursorMass - peptide.MonoisotopicMass;
 
+                bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
+
                 // this section will iterate through all residues of the peptide and try to localize the mass-diff at each residue and report a score for each residue
                 var localizedScores = new List<double>();
                 for (int r = 0; r < peptide.Length; r++)
@@ -58,8 +60,8 @@ namespace EngineLayer.Localization
 
                     // this is the list of theoretical products for this peptide with mass-difference on this residue
                     List<Product> productsWithLocalizedMassDiff = peptideWithLocalizedMassDiff.Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus).ToList();
-
-                    var matchedIons = MatchFragmentIons(scan, productsWithLocalizedMassDiff, commonParameters);
+                    
+                    var matchedIons = MatchFragmentIons(scan, productsWithLocalizedMassDiff, commonParameters, deconSearch);
 
                     if (commonParameters.AddCompIons)
                     {
