@@ -145,17 +145,30 @@ namespace EngineLayer.ClassicSearch
             }
 
             var t = PeptideSpectralMatches.Where(p => p != null).ToList();
+            int fdrPercentProgress = 0;
+            double fdrProgress = 0;
+            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+
             Parallel.ForEach(Partitioner.Create(0, t.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
                 (partitionRange, loopState) =>
                 {
+                    Random r = new Random();
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
                     {
                         t[i].ResolveAllAmbiguities();
-                        DoNewFdr(t[i], ArrayOfSortedMS2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters);
+                        DoNewFdr(t[i], ArrayOfSortedMS2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters, r);
+
+                        fdrProgress++;
+                        int percentProgress = (int)(fdrProgress / t.Count * 100);
+                        if (percentProgress > fdrPercentProgress)
+                        {
+                            fdrPercentProgress = percentProgress;
+                            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+                        }
                     }
                 });
-            
+
             //scanToEnvelopes.Clear();
 
             return new MetaMorpheusEngineResults(this);

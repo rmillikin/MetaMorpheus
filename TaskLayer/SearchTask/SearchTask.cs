@@ -39,13 +39,13 @@ namespace TaskLayer
                         return new SingleAbsoluteAroundZeroSearchMode(precursorMassTolerance.Value);
 
                 case MassDiffAcceptorType.OneMM:
-                    return new DotMassDiffAcceptor("1mm", new List<double> { 0, 1.0029 }, precursorMassTolerance);
+                    return new DotMassDiffAcceptor("1mm", new List<double> { -1.0029, 0, 1.0029 }, precursorMassTolerance);
 
                 case MassDiffAcceptorType.TwoMM:
-                    return new DotMassDiffAcceptor("2mm", new List<double> { 0, 1.0029, 2.0052 }, precursorMassTolerance);
+                    return new DotMassDiffAcceptor("2mm", new List<double> { -2.0052, -1.0029, 0, 1.0029, 2.0052 }, precursorMassTolerance);
 
                 case MassDiffAcceptorType.ThreeMM:
-                    return new DotMassDiffAcceptor("3mm", new List<double> { 0, 1.0029, 2.0052, 3.0077 }, precursorMassTolerance);
+                    return new DotMassDiffAcceptor("3mm", new List<double> { -3.0077, -2.0052, -1.0029, 0, 1.0029, 2.0052, 3.0077 }, precursorMassTolerance);
 
                 case MassDiffAcceptorType.ModOpen:
                     return new IntervalMassDiffAcceptor("-187andUp", new List<DoubleRange> { new DoubleRange(-187, double.PositiveInfinity) });
@@ -245,9 +245,9 @@ namespace TaskLayer
             switch (massDiffAcceptorType)
             {
                 case MassDiffAcceptorType.Exact: return 1;
-                case MassDiffAcceptorType.OneMM: return 2;
-                case MassDiffAcceptorType.TwoMM: return 3;
-                case MassDiffAcceptorType.ThreeMM: return 4;
+                case MassDiffAcceptorType.OneMM: return 3;
+                case MassDiffAcceptorType.TwoMM: return 5;
+                case MassDiffAcceptorType.ThreeMM: return 7;
                 case MassDiffAcceptorType.ModOpen: return 1;
                 case MassDiffAcceptorType.Open: return 1;
                 case MassDiffAcceptorType.Custom: return ParseSearchMode(customMdac).NumNotches;

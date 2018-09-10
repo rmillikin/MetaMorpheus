@@ -13,6 +13,7 @@ namespace EngineLayer
     {
         private static List<Modification> _AllModsKnown = new List<Modification>();
         private static HashSet<string> _AllModTypesKnown = new HashSet<string>();
+        public static Dictionary<string, Modification> AllModsKnownDictionary = new Dictionary<string, Modification>();
 
         static GlobalVariables()
         {
@@ -64,6 +65,14 @@ namespace EngineLayer
             // TODO: need to add motif to Unimod/UniProt ID
             //AddMods(UnimodDeserialized.OfType<Modification>());
             //AddMods(UniprotDeseralized.OfType<Modification>());
+
+            foreach (var mod in AllModsKnown)
+            {
+                if (!AllModsKnownDictionary.ContainsKey(mod.IdWithMotif))
+                {
+                    AllModsKnownDictionary.Add(mod.IdWithMotif, mod);
+                }
+            }
 
             GlobalSettings = Toml.ReadFile<GlobalSettings>(Path.Combine(DataDir, @"settings.toml"));
         }

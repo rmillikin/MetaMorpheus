@@ -40,8 +40,7 @@ namespace EngineLayer
         public static event EventHandler<StringEventArgs> WarnHandler;
 
         public static event EventHandler<ProgressEventArgs> OutProgressHandler;
-
-        private static Dictionary<string, Modification> fds = new Dictionary<string, Modification>();
+        
         public static Dictionary<int, IsotopicEnvelope[]> scanToEnvelopes = new Dictionary<int, IsotopicEnvelope[]>();
 
         public static void DeconvoluteAndStoreAllMs2(Ms2ScanWithSpecificMass[] ms2Scans, CommonParameters commonParameters)
@@ -91,7 +90,8 @@ namespace EngineLayer
             return matchedFragmentIons.Count + (matchedFragmentIons.Sum(v => v.Intensity) / thisScan.TotalIonCurrent);
         }
 
-        public static List<MatchedFragmentIon> MatchFragmentIons(MsDataScan spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters, bool deconvolutionSearch = false)
+        public static List<MatchedFragmentIon> MatchFragmentIons(MsDataScan spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters,
+            bool deconvolutionSearch = false)
         {
             var matchedFragmentIons = new List<MatchedFragmentIon>();
             var alreadyCountedMzs = new HashSet<double>();
@@ -205,24 +205,17 @@ namespace EngineLayer
 
         protected abstract MetaMorpheusEngineResults RunSpecific();
 
-        public static void DoNewFdr(PeptideSpectralMatch psm, MsDataScan scan, CommonParameters commonParameters)
+        public static void DoNewFdr(PeptideSpectralMatch psm, MsDataScan scan, CommonParameters commonParameters, Random r)
         {
-            int numDatabases = 20;
+            int numDatabases = 100;
             var peptide = psm.BestMatchingPeptideWithSetMods.First().Pwsm;
             bool deconScoring = commonParameters.DigestionParams.Protease.Name == "top-down";
 
             double numDecoys = 0;
-            for (int i = 0; i < numDatabases; i++)
+
+            foreach (var decoyShuffledPeptide in GetShuffledPeptides(peptide, numDatabases, r))
             {
-                string randomizedSequence = ShuffleString(peptide.BaseSequence);
-
-                while (randomizedSequence == peptide.BaseSequence)
-                {
-                    randomizedSequence = ShuffleString(peptide.BaseSequence);
-                }
-
-                PeptideWithSetModifications randomizedPeptide = new PeptideWithSetModifications(randomizedSequence, fds, peptide.NumFixedMods, peptide.DigestionParams, peptide.Protein, int.MinValue, int.MinValue, peptide.MissedCleavages, peptide.PeptideDescription);
-                var theorFragments = randomizedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+                var theorFragments = decoyShuffledPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
                 var matchedFragments = MatchFragmentIons(scan, theorFragments, commonParameters, deconScoring);
 
                 double decoyScore = CalculatePeptideScore(scan, matchedFragments, 0);
@@ -230,54 +223,88 @@ namespace EngineLayer
                 {
                     numDecoys++;
                 }
-                //if (commonParameters.CalculateEValue)
-                //{
+                
                 psm.AllScores.Add(decoyScore);
-                //}
             }
 
             double percentDecoy = numDecoys / numDatabases;
             psm.percentDecoy = percentDecoy;
         }
 
-        private static string ShuffleString(string start)
+        public static IEnumerable<PeptideWithSetModifications> GetShuffledPeptides(PeptideWithSetModifications originalPeptide, int numShuffledPeptidesToGenerate, Random random)
         {
-            Random r = new Random();
-            int startLength = start.Length;
-            StringBuilder s = new StringBuilder();
-            s.Append(start.First());
-            var shuffleablePart = start.Substring(1, start.Length - 2).ToArray();
+            string[] temp = new string[originalPeptide.BaseSequence.Length];
 
-            int ind = r.Next(0, shuffleablePart.Length - 1);
-
-            while (shuffleablePart.Any(p => p != '-'))
+            if (originalPeptide.AllModsOneIsNterminus.Any())
             {
-                ind = r.Next(0, shuffleablePart.Length);
-
-                if (shuffleablePart[ind] != '-')
+                string sequence = originalPeptide.FullSequence;
+                for (int m = 0; m < originalPeptide.AllModsOneIsNterminus.Count; m++)
                 {
-                    s.Append(shuffleablePart[ind]);
+                    int startMod = sequence.IndexOf('[') - 1;
+                    int endMod = sequence.IndexOf(']');
+                    string mod;
+                    string aa;
+
+                    if (startMod == -1)
+                    {
+                        // N-terminal mod
+                        startMod = 0;
+                        mod = sequence.Substring(startMod, endMod - startMod + 2);
+                        temp[startMod] = mod;
+                        aa = mod[endMod + 1].ToString();
+                    }
+                    else if (startMod == -2)
+                    {
+                        // annotation of mods is wrong...
+                        break;
+                    }
+                    else
+                    {
+                        mod = sequence.Substring(startMod, endMod - startMod + 1);
+                        temp[startMod] = mod;
+                        aa = mod[0].ToString();
+                    }
+
+
+                    sequence = sequence.Remove(startMod, endMod - startMod + 1).Insert(startMod, aa);
+                    //sequence = sequence.Replace(mod, aa, );
                 }
-                shuffleablePart[ind] = '-';
+
+                for (int a = 0; a < originalPeptide.BaseSequence.Length; a++)
+                {
+                    if (temp[a] == null)
+                    {
+                        temp[a] = originalPeptide.BaseSequence[a].ToString();
+                    }
+                }
             }
-            s.Append(start.Last());
-
-            int endLength = s.Length;
-            return s.ToString();
-        }
-
-        private static void fff()
-        {
-            foreach (var mod in GlobalVariables.AllModsKnown)
+            else
             {
-                if (!fds.ContainsKey(mod.IdWithMotif))
+                temp = originalPeptide.BaseSequence.Select(p => p.ToString()).ToArray();
+            }
+
+            for (int i = 0; i < numShuffledPeptidesToGenerate; i++)
+            {
+                string shuffledSequence = originalPeptide.FullSequence;
+
+                while (shuffledSequence == originalPeptide.FullSequence)
                 {
-                    fds.Add(mod.IdWithMotif, mod);
+                    // Knuth shuffle algorithm
+                    for (int t = 0; t < temp.Length; t++)
+                    {
+                        string tmp = temp[t];
+                        int r = random.Next(t, temp.Length);
+                        temp[t] = temp[r];
+                        temp[r] = tmp;
+                    }
+
+                    shuffledSequence = string.Join("", temp);
                 }
+
+                yield return new PeptideWithSetModifications(shuffledSequence, GlobalVariables.AllModsKnownDictionary);
             }
         }
-
-
+        
         private static List<MatchedFragmentIon> MatchFragmentIonsDeconvolution(MsDataScan spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters)
         {
             var matchedFragmentIons = new List<MatchedFragmentIon>();

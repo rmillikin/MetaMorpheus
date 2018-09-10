@@ -1,4 +1,5 @@
-﻿using Chemistry;
+﻿using System;
+using Chemistry;
 using EngineLayer;
 using EngineLayer.ClassicSearch;
 using EngineLayer.FdrAnalysis;
@@ -192,6 +193,75 @@ namespace Test
             fdrResultsModern = (FdrAnalysisResults)(new FdrAnalysisEngine(allPsmsArrayModern.ToList(), 1, CommonParameters, new List<string>()).Run());
             Assert.IsTrue(fdrResultsClassic.PsmsWithin1PercentFdr == 3);
             Assert.IsTrue(fdrResultsModern.PsmsWithin1PercentFdr == 3);
+        }
+
+        [Test]
+        public static void TestShuffledPeptide()
+        {
+            ModificationMotif.TryGetMotif("E", out var motif);
+
+            Modification mod = new Modification("Temp", null, "t", null, motif, "Anywhere.", null, 20);
+
+            GlobalVariables.AllModsKnownDictionary.Add(mod.IdWithMotif, mod);
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 2, new List<Modification> { mod } } };
+
+            Protein p = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            DigestionParams d = new DigestionParams();
+            PeptideWithSetModifications peptide = p.Digest(d, new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
+
+            int numShuffledToGenerate = 5;
+            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, new Random()).ToList();
+            Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
+            Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == peptide.FullSequence.Length));
+            Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == peptide.AllModsOneIsNterminus.Count));
+        }
+
+        [Test]
+        public static void TestShuffledPeptideNTerm()
+        {
+            ModificationMotif.TryGetMotif("P", out var motif);
+
+            Modification mod = new Modification("Temp", null, "t", null, motif, "N-terminal.", null, 42);
+
+            GlobalVariables.AllModsKnownDictionary.Add(mod.IdWithMotif, mod);
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 1, new List<Modification> { mod } } };
+
+            Protein p = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            DigestionParams d = new DigestionParams();
+            PeptideWithSetModifications peptide = p.Digest(d, new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
+
+            int numShuffledToGenerate = 5;
+            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, new Random()).ToList();
+            Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
+            Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == peptide.FullSequence.Length));
+            Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == peptide.AllModsOneIsNterminus.Count));
+        }
+
+        [Test]
+        public static void TestShuffledPeptide2()
+        {
+            var proteinList = ProteinDbLoader.LoadProteinXML(
+                @"C:\Data\LVS_TD_Yeast\2018-09-10-14-05-34\Task1-GPTMDTask\yeastGPTMD.xml", true, 
+                DecoyType.None, GlobalVariables.AllModsKnown, false, new List<string>(), out var um);
+
+            var t = proteinList.Where(p => p.OneBasedPossibleLocalizedModifications.Count > 0).ToList();
+
+            DigestionParams d = new DigestionParams(protease: "top-down", minPeptideLength: 1);
+
+            foreach (var protein in t)
+            {
+                foreach (var isoform in protein.Digest(d, new List<Modification>(), new List<Modification>()))
+                {
+                    int numShuffledToGenerate = 5;
+                    var shuffledPeptides = MetaMorpheusEngine
+                        .GetShuffledPeptides(isoform, numShuffledToGenerate, new Random()).ToList();
+                    Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
+                    Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == isoform.FullSequence.Length));
+                    Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == isoform.AllModsOneIsNterminus.Count));
+                }
+            }
         }
     }
 }
