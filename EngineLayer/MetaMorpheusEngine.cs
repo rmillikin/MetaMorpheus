@@ -205,7 +205,7 @@ namespace EngineLayer
 
         protected abstract MetaMorpheusEngineResults RunSpecific();
 
-        public static void DoNewFdr(PeptideSpectralMatch psm, MsDataScan scan, CommonParameters commonParameters, Random r)
+        public static void DoShuffledFdrAnalysis(PeptideSpectralMatch psm, MsDataScan scan, CommonParameters commonParameters, Random r)
         {
             int numDatabases = 100;
             var peptide = psm.BestMatchingPeptideWithSetMods.First().Pwsm;
@@ -253,21 +253,14 @@ namespace EngineLayer
                         temp[startMod] = mod;
                         aa = mod[endMod + 1].ToString();
                     }
-                    else if (startMod == -2)
-                    {
-                        // annotation of mods is wrong...
-                        break;
-                    }
                     else
                     {
                         mod = sequence.Substring(startMod, endMod - startMod + 1);
                         temp[startMod] = mod;
                         aa = mod[0].ToString();
                     }
-
-
+                    
                     sequence = sequence.Remove(startMod, endMod - startMod + 1).Insert(startMod, aa);
-                    //sequence = sequence.Replace(mod, aa, );
                 }
 
                 for (int a = 0; a < originalPeptide.BaseSequence.Length; a++)

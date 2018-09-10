@@ -178,7 +178,7 @@ namespace EngineLayer.ModernSearch
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
                     {
                         t[i].ResolveAllAmbiguities();
-                        DoNewFdr(t[i], ListOfSortedms2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters, r);
+                        DoShuffledFdrAnalysis(t[i], ListOfSortedms2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters, r);
 
                         fdrProgress++;
                         int percentProgress = (int)(fdrProgress / t.Count * 100);
