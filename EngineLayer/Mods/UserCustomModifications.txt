@@ -1,8 +1,7 @@
 ﻿﻿UserCustomModifications
-ID   MyFirstModification
-TG   K
+ID   98Da Acetone Artifact
+TG   X
 PP   Anywhere.
 MT   Custom
-MM   12.00000
-CF   C1
+CF   C6H10O1
 //

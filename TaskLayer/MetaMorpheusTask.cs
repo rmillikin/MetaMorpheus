@@ -538,7 +538,7 @@ namespace TaskLayer
                     }
                     else
                     {
-                        throw new MetaMorpheusException("The protein database contained multiple proteins with the same accession! This is not allowed for index-based searches (modern, non-specific, crosslink searches)");
+                        //throw new MetaMorpheusException("The protein database contained multiple proteins with the same accession! This is not allowed for index-based searches (modern, non-specific, crosslink searches)");
                     }
                 }
 

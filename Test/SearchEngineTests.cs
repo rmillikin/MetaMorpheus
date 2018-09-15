@@ -12,8 +12,10 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IO.MzML;
 using TaskLayer;
 using UsefulProteomicsDatabases;
+using System.IO;
 
 namespace Test
 {
@@ -773,6 +775,39 @@ namespace Test
             {
                 Assert.IsTrue(kvp.Value);
             }
+        }
+
+        [Test]
+        public static void TestClassicSearchEngineTopDownSearch()
+        {
+            CommonParameters CommonParameters = new CommonParameters(
+                digestionParams: new DigestionParams(protease: "top-down"),
+                scoreCutoff: 1);
+            
+            var variableModifications = new List<Modification>();
+            var fixedModifications = new List<Modification>();
+            var proteinList = new List<Protein>
+            {
+                new Protein("MPKVYSYQEVAEHNGPENFWIIIDDKVYDVSQFKDEHPGGDEIIMDLGGQDATESFVDIGHSDEALRLLKGLYIGDVDKTSERVSVEKVSTSENQSKGSGTLVVILAILMLGVAYYLLNE", "P40312")
+            };
+
+            var myMsDataFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TdTestData\slicedTDYeast.mzML"));
+
+            var searchModes = new SinglePpmAroundZeroSearchMode(5);
+
+            bool DoPrecursorDeconvolution = true;
+            bool UseProvidedPrecursorInfo = false;
+            double DeconvolutionIntensityRatio = 4;
+            int DeconvolutionMaxAssumedChargeState = 60;
+            Tolerance DeconvolutionMassTolerance = new PpmTolerance(5);
+
+            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, DoPrecursorDeconvolution, UseProvidedPrecursorInfo, DeconvolutionIntensityRatio, DeconvolutionMaxAssumedChargeState, DeconvolutionMassTolerance).OrderBy(b => b.PrecursorMass).ToArray();
+
+            PeptideSpectralMatch[] allPsmsArray = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
+            new ClassicSearchEngine(allPsmsArray, listOfSortedms2Scans, variableModifications, fixedModifications, proteinList, searchModes, CommonParameters, new List<string>()).Run();
+
+            var psm = allPsmsArray.Where(p => p != null).FirstOrDefault();
+            Assert.That(psm.MatchedFragmentIons.Count > 50);
         }
     }
 }

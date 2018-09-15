@@ -198,6 +198,7 @@ namespace Test
         [Test]
         public static void TestShuffledPeptide()
         {
+            Random r = new Random(1);
             ModificationMotif.TryGetMotif("E", out var motif);
 
             Modification mod = new Modification("Temp", null, "t", null, motif, "Anywhere.", null, 20);
@@ -211,7 +212,7 @@ namespace Test
             PeptideWithSetModifications peptide = p.Digest(d, new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
 
             int numShuffledToGenerate = 5;
-            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, new Random()).ToList();
+            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, r).ToList();
             Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
             Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == peptide.FullSequence.Length));
             Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == peptide.AllModsOneIsNterminus.Count));
@@ -220,6 +221,7 @@ namespace Test
         [Test]
         public static void TestShuffledPeptideNTerm()
         {
+            Random r = new Random(1);
             ModificationMotif.TryGetMotif("P", out var motif);
 
             Modification mod = new Modification("Temp", null, "t", null, motif, "N-terminal.", null, 42);
@@ -233,7 +235,7 @@ namespace Test
             PeptideWithSetModifications peptide = p.Digest(d, new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
 
             int numShuffledToGenerate = 5;
-            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, new Random()).ToList();
+            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(peptide, numShuffledToGenerate, r).ToList();
             Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
             Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == peptide.FullSequence.Length));
             Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == peptide.AllModsOneIsNterminus.Count));
@@ -242,6 +244,7 @@ namespace Test
         [Test]
         public static void TestShuffledPeptide2()
         {
+            Random r = new Random(1);
             var proteinList = ProteinDbLoader.LoadProteinXML(
                 @"C:\Data\LVS_TD_Yeast\2018-09-10-14-05-34\Task1-GPTMDTask\yeastGPTMD.xml", true, 
                 DecoyType.None, GlobalVariables.AllModsKnown, false, new List<string>(), out var um);
@@ -256,7 +259,7 @@ namespace Test
                 {
                     int numShuffledToGenerate = 5;
                     var shuffledPeptides = MetaMorpheusEngine
-                        .GetShuffledPeptides(isoform, numShuffledToGenerate, new Random()).ToList();
+                        .GetShuffledPeptides(isoform, numShuffledToGenerate, r).ToList();
                     Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
                     Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == isoform.FullSequence.Length));
                     Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == isoform.AllModsOneIsNterminus.Count));

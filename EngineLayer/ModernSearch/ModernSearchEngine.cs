@@ -194,11 +194,10 @@ namespace EngineLayer.ModernSearch
 
             return new MetaMorpheusEngineResults(this);
         }
-
-
+        
         public static List<int> GetBinsToSearch(Ms2ScanWithSpecificMass scan, CommonParameters commonParameters, List<int>[] fragmentIndex)
         {
-            var isotopicEnvelopes = scanToEnvelopes[scan.OneBasedScanNumber];
+            var isotopicEnvelopes = scanToEnvelopes[scan.OneBasedScanNumber].SelectMany(p => p.Value);
 
             //int obsPreviousFragmentCeilingMz = 0;
             List<int> binsToSearch = new List<int>();

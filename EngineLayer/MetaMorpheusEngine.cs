@@ -40,8 +40,8 @@ namespace EngineLayer
         public static event EventHandler<StringEventArgs> WarnHandler;
 
         public static event EventHandler<ProgressEventArgs> OutProgressHandler;
-        
-        public static Dictionary<int, IsotopicEnvelope[]> scanToEnvelopes = new Dictionary<int, IsotopicEnvelope[]>();
+
+        public static Dictionary<int, Dictionary<int, List<IsotopicEnvelope>>> scanToEnvelopes = new Dictionary<int, Dictionary<int, List<IsotopicEnvelope>>>();
 
         public static void DeconvoluteAndStoreAllMs2(Ms2ScanWithSpecificMass[] ms2Scans, CommonParameters commonParameters)
         {
@@ -57,7 +57,21 @@ namespace EngineLayer
                     var isotopicEnvelopes = scan.TheScan.MassSpectrum.Deconvolute(scan.TheScan.MassSpectrum.Range, minZ, maxZ,
                         ms2DeconvolutionPpmTolerance, commonParameters.DeconvolutionIntensityRatio).ToArray();
 
-                    scanToEnvelopes.Add(scan.OneBasedScanNumber, isotopicEnvelopes);
+                    Dictionary<int, List<IsotopicEnvelope>> indexedIsotopicEnvelopes = new Dictionary<int, List<IsotopicEnvelope>>();
+
+                    foreach (var envelope in isotopicEnvelopes)
+                    {
+                        if (indexedIsotopicEnvelopes.TryGetValue((int)envelope.monoisotopicMass, out var envelopes))
+                        {
+                            envelopes.Add(envelope);
+                        }
+                        else
+                        {
+                            indexedIsotopicEnvelopes.Add((int)envelope.monoisotopicMass, new List<IsotopicEnvelope> { envelope });
+                        }
+                    }
+
+                    scanToEnvelopes.Add(scan.OneBasedScanNumber, indexedIsotopicEnvelopes);
                 }
             }
         }
@@ -223,9 +237,12 @@ namespace EngineLayer
                 {
                     numDecoys++;
                 }
-                
+
                 psm.AllScores.Add(decoyScore);
             }
+
+            // TODO: don't do this if it's already been added!
+            psm.AllScores.Add(psm.Score);
 
             double percentDecoy = numDecoys / numDatabases;
             psm.percentDecoy = percentDecoy;
@@ -242,6 +259,8 @@ namespace EngineLayer
                 {
                     int startMod = sequence.IndexOf('[') - 1;
                     int endMod = sequence.IndexOf(']');
+                    if (endMod < sequence.Length - 2 && sequence[endMod + 1] == ']')
+                        endMod++;
                     string mod;
                     string aa;
 
@@ -259,7 +278,7 @@ namespace EngineLayer
                         temp[startMod] = mod;
                         aa = mod[0].ToString();
                     }
-                    
+
                     sequence = sequence.Remove(startMod, endMod - startMod + 1).Insert(startMod, aa);
                 }
 
@@ -297,7 +316,7 @@ namespace EngineLayer
                 yield return new PeptideWithSetModifications(shuffledSequence, GlobalVariables.AllModsKnownDictionary);
             }
         }
-        
+
         private static List<MatchedFragmentIon> MatchFragmentIonsDeconvolution(MsDataScan spectrum, List<Product> theoreticalProducts, CommonParameters commonParameters)
         {
             var matchedFragmentIons = new List<MatchedFragmentIon>();
@@ -319,8 +338,21 @@ namespace EngineLayer
 
                 // get the first isotopic envelope within the ppm tolerance
                 // if there is no envelope within the desired ppm tolerance, "bestEnvelope" will be null
-                IsotopicEnvelope bestEnvelope = isotopicEnvelopes.FirstOrDefault(p =>
-                    commonParameters.ProductMassTolerance.Within(p.monoisotopicMass, product.NeutralMass));
+                IsotopicEnvelope bestEnvelope = null;
+
+                for (int i = -1; i <= 1; i++)
+                {
+                    if (isotopicEnvelopes.TryGetValue((int) product.NeutralMass + i, out var isotopicEnvelopes2))
+                    {
+                        bestEnvelope = isotopicEnvelopes2.FirstOrDefault(p =>
+                            commonParameters.ProductMassTolerance.Within(p.monoisotopicMass, product.NeutralMass));
+
+                        if (bestEnvelope != null)
+                        {
+                            break;
+                        }
+                    }
+                }
 
                 // add the matched fragment
                 if (bestEnvelope != null)

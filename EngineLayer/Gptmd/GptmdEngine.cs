@@ -55,7 +55,7 @@ namespace EngineLayer.Gptmd
             int modsAdded = 0;
             //foreach peptide in each psm and for each modification that matches the notch,
             //add that modification to every allowed residue
-            foreach (var psm in AllIdentifications.Where(b => b.FdrInfo.QValueNotch <= 0.05 && !b.IsDecoy))
+            foreach (var psm in AllIdentifications.Where(b => b.FdrInfo.QValueNotch <= 0.05 && b.FdrInfo.EValue < 5.0 && !b.IsDecoy))
             {
                 // get file-specific precursor tolerance
                 Tolerance precursorMassTolerance = FilePathToPrecursorMassTolerance[psm.FullFilePath];

@@ -42,6 +42,12 @@
     <None Update="SlicedSearchTaskConfig.toml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TdTestData\SlicedTdYeast.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TdTestData\slicedTDYeast.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
