@@ -146,7 +146,7 @@ namespace TaskLayer
                     yield return new Ms2ScanWithSpecificMass(ms2scan, heh.Item1, heh.Item2, fullFilePath);
             }
         }
-
+        
         public static CommonParameters SetAllFileSpecificCommonParams(CommonParameters commonParams, FileSpecificParameters fileSpecificParams)
         {
             if (fileSpecificParams == null)
@@ -556,6 +556,11 @@ namespace TaskLayer
                 {
                     fragmentIndex = (List<int>[])ser.Deserialize(file);
                 }
+            }
+
+            foreach (var peptide in peptideIndex)
+            {
+                double ok = peptide.MonoisotopicMass;
             }
         }
     }

@@ -342,7 +342,7 @@ namespace EngineLayer
 
                 for (int i = -1; i <= 1; i++)
                 {
-                    if (isotopicEnvelopes.TryGetValue((int) product.NeutralMass + i, out var isotopicEnvelopes2))
+                    if (isotopicEnvelopes.TryGetValue((int)product.NeutralMass + i, out var isotopicEnvelopes2))
                     {
                         bestEnvelope = isotopicEnvelopes2.FirstOrDefault(p =>
                             commonParameters.ProductMassTolerance.Within(p.monoisotopicMass, product.NeutralMass));
@@ -364,6 +364,48 @@ namespace EngineLayer
             }
 
             return matchedFragmentIons;
+        }
+
+        public static IEnumerable<Product> GenerateComplementaryIons(DissociationType dissociationType, List<Product> generateComplementTo,
+            Ms2ScanWithSpecificMass ms2Scan, PeptideWithSetModifications peptide)
+        {
+            foreach (Product product in generateComplementTo)
+            {
+                ProductType complementaryProductType;
+
+                switch (product.ProductType)
+                {
+                    case ProductType.b:
+                        complementaryProductType = ProductType.y; break;
+
+                    case ProductType.y:
+                        complementaryProductType = ProductType.b; break;
+
+                    case ProductType.c:
+                        complementaryProductType = ProductType.zPlusOne; break;
+
+                    case ProductType.zPlusOne:
+                        complementaryProductType = ProductType.c; break;
+
+                    default:
+                        throw new NotImplementedException("Complementary ions have not been implemented for product type: " + product.ProductType);
+                }
+
+                FragmentationTerminus complementaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[complementaryProductType];
+
+                double complementaryMass = ms2Scan.PrecursorMass - product.NeutralMass - DissociationTypeCollection.GetMassShiftFromProductType(complementaryProductType);
+                int fragmentNumberOffset = -1;
+                if (complementaryFragmentationTerminus == FragmentationTerminus.C)
+                {
+                    fragmentNumberOffset = 1;
+                }
+
+                var terminusFragment = new NeutralTerminusFragment(complementaryFragmentationTerminus, complementaryMass,
+                    peptide.Length - product.TerminusFragment.FragmentNumber,
+                    product.TerminusFragment.AminoAcidPosition + fragmentNumberOffset);
+
+                yield return new Product(complementaryProductType, terminusFragment, 0);
+            }
         }
 
         private void StartingSingleEngine()

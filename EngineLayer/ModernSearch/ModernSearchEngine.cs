@@ -197,18 +197,24 @@ namespace EngineLayer.ModernSearch
         
         public static List<int> GetBinsToSearch(Ms2ScanWithSpecificMass scan, CommonParameters commonParameters, List<int>[] fragmentIndex)
         {
-            var isotopicEnvelopes = scanToEnvelopes[scan.OneBasedScanNumber].SelectMany(p => p.Value);
+            double[] peakMonoisotopicMasses = null;
 
+            if (scanToEnvelopes != null && scanToEnvelopes.Any())
+            {
+                peakMonoisotopicMasses = scanToEnvelopes[scan.OneBasedScanNumber].SelectMany(p => p.Value).Select(p => p.monoisotopicMass).ToArray();
+            }
+            else
+            {
+                peakMonoisotopicMasses = scan.TheScan.MassSpectrum.XArray.Select(p => p.ToMass(1)).ToArray();
+            }
+            
             //int obsPreviousFragmentCeilingMz = 0;
             List<int> binsToSearch = new List<int>();
-            foreach (var peakMz in isotopicEnvelopes)
+            foreach (double peakMonoisotopicMass in peakMonoisotopicMasses)
             {
-                // assume charge state 1 to calculate mass tolerance
-                double experimentalFragmentMass = peakMz.monoisotopicMass;
-
                 // get theoretical fragment bins within mass tolerance
-                int obsFragmentFloorMass = (int)Math.Floor((commonParameters.ProductMassTolerance.GetMinimumValue(experimentalFragmentMass)) * FragmentBinsPerDalton);
-                int obsFragmentCeilingMass = (int)Math.Ceiling((commonParameters.ProductMassTolerance.GetMaximumValue(experimentalFragmentMass)) * FragmentBinsPerDalton);
+                int obsFragmentFloorMass = (int)Math.Floor((commonParameters.ProductMassTolerance.GetMinimumValue(peakMonoisotopicMass)) * FragmentBinsPerDalton);
+                int obsFragmentCeilingMass = (int)Math.Ceiling((commonParameters.ProductMassTolerance.GetMaximumValue(peakMonoisotopicMass)) * FragmentBinsPerDalton);
 
                 // prevents double-counting peaks close in m/z and lower-bound out of range exceptions
                 //if (obsFragmentFloorMass < obsPreviousFragmentCeilingMz)
@@ -217,13 +223,13 @@ namespace EngineLayer.ModernSearch
 
                 // prevent upper-bound index out of bounds errors;
                 // lower-bound is handled by the previous "if (obsFragmentFloorMass < obsPreviousFragmentCeilingMz)" statement
-                if (obsFragmentCeilingMass >= fragmentIndex.Length)
-                {
-                    obsFragmentCeilingMass = fragmentIndex.Length - 1;
+                //if (obsFragmentCeilingMass >= fragmentIndex.Length)
+                //{
+                //    obsFragmentCeilingMass = fragmentIndex.Length - 1;
 
-                    if (obsFragmentFloorMass >= fragmentIndex.Length)
-                        obsFragmentFloorMass = fragmentIndex.Length - 1;
-                }
+                //    if (obsFragmentFloorMass >= fragmentIndex.Length)
+                //        obsFragmentFloorMass = fragmentIndex.Length - 1;
+                //}
 
                 // search mass bins within a tolerance
                 for (int fragmentBin = obsFragmentFloorMass; fragmentBin <= obsFragmentCeilingMass; fragmentBin++)

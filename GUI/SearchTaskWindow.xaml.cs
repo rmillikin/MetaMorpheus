@@ -399,7 +399,7 @@ namespace MetaMorpheusGUI
 
 
             //TODO redo
-            DissociationType t = DissociationType.CID;
+            DissociationType t = DissociationType.HCD;
 
             CommonParameters CommonParamsToSave = new CommonParameters(
                 useDeltaScore: deltaScoreCheckBox.IsChecked.Value,

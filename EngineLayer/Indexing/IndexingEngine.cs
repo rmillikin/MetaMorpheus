@@ -19,7 +19,6 @@ namespace EngineLayer.Indexing
 
         protected readonly List<Modification> FixedModifications;
         protected readonly List<Modification> VariableModifications;
-        protected readonly List<ProductType> ProductTypes;
         protected readonly int CurrentPartition;
         protected readonly DecoyType DecoyType;
         protected readonly IEnumerable<DigestionParams> CollectionOfDigestionParams;
@@ -128,8 +127,8 @@ namespace EngineLayer.Indexing
             oldPercentProgress = 0;
             for (int peptideId = 0; peptideId < peptidesSortedByMass.Count; peptideId++)
             {
-                var fragments = peptidesSortedByMass[peptideId].Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus).ToList();
-                var fragmentMasses = peptidesSortedByMass[peptideId].Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus).Select(m => m.NeutralMass).ToList();
+                var fragmentMasses = peptidesSortedByMass[peptideId].Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus)
+                    .Select(m => m.NeutralMass).ToList();
 
                 foreach (var theoreticalFragmentMass in fragmentMasses)
                 {

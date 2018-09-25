@@ -34,6 +34,15 @@ namespace EngineLayer.NonSpecificEnzymeSearch
 
             byte byteScoreCutoff = (byte)commonParameters.ScoreCutoff;
 
+            // for top-down searches, deconvolute the MS2 spectrum instead of assuming z=1 for fragments
+            //bool deconSearch = commonParameters.DigestionParams.Protease.Name == "top-down";
+
+            //if (deconSearch)
+            {
+                Status("Deconvoluting MS2 scans...");
+                DeconvoluteAndStoreAllMs2(ListOfSortedms2Scans, commonParameters);
+            }
+
             Parallel.ForEach(Partitioner.Create(0, ListOfSortedms2Scans.Length), new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile }, range =>
             {
                 byte[] scoringTable = new byte[PeptideIndex.Count];
@@ -99,12 +108,12 @@ namespace EngineLayer.NonSpecificEnzymeSearch
                                 PeptideWithSetModifications peptide = PeptideIndex[id];
 
                                 List<Product> peptideTheorProducts = peptide.Fragment(commonParameters.DissociationType, commonParameters.FragmentationTerminus).ToList();
-                                List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan, peptideTheorProducts, commonParameters);
+                                List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan, peptideTheorProducts, commonParameters, true);
 
                                 if (commonParameters.AddCompIons)
                                 {
-                                    MzSpectrum complementarySpectrum = GenerateComplementarySpectrum(scan.TheScan.MassSpectrum, scan.PrecursorMass, commonParameters.DissociationType);
-                                    //matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters));
+                                    //MzSpectrum complementarySpectrum = GenerateComplementarySpectrum(scan.TheScan.MassSpectrum, scan.PrecursorMass, commonParameters.DissociationType);
+                                    //matchedIons.AddRange(MatchFragmentIons(complementarySpectrum, peptideTheorProducts, commonParameters, true));
                                 }
 
                                 double thisScore = CalculatePeptideScore(scan.TheScan, matchedIons, MaxMassThatFragmentIonScoreIsDoubled);
@@ -206,6 +215,32 @@ namespace EngineLayer.NonSpecificEnzymeSearch
                     }
                 }
             });
+
+            var t = PeptideSpectralMatches.Where(p => p != null).ToList();
+            int fdrPercentProgress = 0;
+            double fdrProgress = 0;
+            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+
+            Parallel.ForEach(Partitioner.Create(0, t.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
+                (partitionRange, loopState) =>
+                {
+                    Random r = new Random();
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        t[i].ResolveAllAmbiguities();
+                        DoShuffledFdrAnalysis(t[i], ListOfSortedms2Scans.First(p => p.OneBasedScanNumber == t[i].ScanNumber).TheScan, commonParameters, r);
+
+                        fdrProgress++;
+                        int percentProgress = (int)(fdrProgress / t.Count * 100);
+                        if (percentProgress > fdrPercentProgress)
+                        {
+                            fdrPercentProgress = percentProgress;
+                            ReportProgress(new ProgressEventArgs(fdrPercentProgress, "Performing shuffled FDR...", nestedIds));
+                        }
+                    }
+                });
+
             return new MetaMorpheusEngineResults(this);
         }
 

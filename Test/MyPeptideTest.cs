@@ -171,14 +171,22 @@ namespace Test
             Assert.IsNull(globalPsms[0]);
         }
 
-        //[Test] MOVED TO MZLIB
-        //public static void TestGoodPeptide()
-        //public static void TestNoCleavage()
-        //public static void TestBadPeptide()
-        //public static void TestPeptideWithSetModifications()
-        //public static void TestPeptideWithFixedModifications()
-        //public static void TestDigestIndices()
-        //public static void TestDigestDecoy()
-        //public static void TestGoodPeptideWithLength()
+        [Test]
+        public static void TestNewCompIons()
+        {
+            DissociationType dissociationType = DissociationType.HCD;
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications("PEPTIDE", null);
+            var fragments = peptide.Fragment(dissociationType, FragmentationTerminus.Both).OrderByDescending(p => p.NeutralMass).ToList();
+
+            Ms2ScanWithSpecificMass scan = new Ms2ScanWithSpecificMass(null, peptide.MonoisotopicMass.ToMz(2), 2, null);
+
+            var compIons = MetaMorpheusEngine.GenerateComplementaryIons(dissociationType, fragments, scan, peptide).OrderByDescending(p => p.NeutralMass).ToList();
+            
+            Assert.That(fragments.Select(p => Math.Round(p.NeutralMass, 5)).SequenceEqual(compIons.Select(p => Math.Round(p.NeutralMass, 5))));
+            Assert.That(fragments.Select(p => p.ProductType).SequenceEqual(compIons.Select(p => p.ProductType)));
+            Assert.That(fragments.Select(p => p.TerminusFragment.AminoAcidPosition).SequenceEqual(compIons.Select(p => p.TerminusFragment.AminoAcidPosition)));
+            Assert.That(fragments.Select(p => p.TerminusFragment.FragmentNumber).SequenceEqual(compIons.Select(p => p.TerminusFragment.FragmentNumber)));
+            Assert.That(fragments.Select(p => p.TerminusFragment.Terminus).SequenceEqual(compIons.Select(p => p.TerminusFragment.Terminus)));
+        }
     }
 }

@@ -16,6 +16,7 @@ using IO.MzML;
 using TaskLayer;
 using UsefulProteomicsDatabases;
 using System.IO;
+using Chemistry;
 
 namespace Test
 {
@@ -783,7 +784,7 @@ namespace Test
             CommonParameters CommonParameters = new CommonParameters(
                 digestionParams: new DigestionParams(protease: "top-down"),
                 scoreCutoff: 1);
-            
+
             var variableModifications = new List<Modification>();
             var fixedModifications = new List<Modification>();
             var proteinList = new List<Protein>
@@ -808,6 +809,52 @@ namespace Test
 
             var psm = allPsmsArray.Where(p => p != null).FirstOrDefault();
             Assert.That(psm.MatchedFragmentIons.Count > 50);
+        }
+
+        [Test]
+        public static void RobTestNonSpecific()
+        {
+            Protein theoreticalProtein = new Protein("PEPTIDE", null);
+            Protein experimentalProtein = new Protein("EPTID", null);
+
+            var dp = new DigestionParams(protease: "singleC", minPeptideLength: 1);
+
+            SearchParameters SearchParameters = new SearchParameters();
+            CommonParameters CommonParameters = new CommonParameters(
+                dissociationType: DissociationType.HCD,
+                fragmentationTerminus: FragmentationTerminus.C,
+                digestionParams: dp,
+                scoreCutoff: 4,
+                precursorMassTolerance: new PpmTolerance(5),
+                addCompIons: true);
+
+            var experimentalPeptide = experimentalProtein.Digest(new DigestionParams(minPeptideLength: 1), new List<Modification>(), new List<Modification>()).First();
+
+            // create the scan
+            var scans = new Ms2ScanWithSpecificMass[1];
+            double[] mz = experimentalPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).Select(p => p.NeutralMass.ToMz(1)).OrderBy(v => v).ToArray();
+            double[] intensities = new[] { 1.0, 1, 1, 1, 1, 1, 1, 1 };
+
+            MzSpectrum spectrum = new MzSpectrum(mz, intensities, false);
+            MsDataScan sc = new MsDataScan(spectrum, 1, 2, true, Polarity.Positive, 1, spectrum.Range, "",
+                MZAnalyzerType.Orbitrap, 12, 1.0, null, null);
+            scans[0] = new Ms2ScanWithSpecificMass(sc, experimentalPeptide.MonoisotopicMass.ToMz(2), 2, "");
+
+            var indexEngine = new IndexingEngine(new List<Protein> { theoreticalProtein }, new List<Modification>(), new List<Modification>(), 1, DecoyType.Reverse,
+                new List<DigestionParams> { dp }, CommonParameters, 30000, new List<string>());
+
+            var indexResults = (IndexingResults)indexEngine.Run();
+            
+            PeptideSpectralMatch[] allPsmsArray = new PeptideSpectralMatch[1];
+
+            MassDiffAcceptor massDiffAcceptor = SearchTask.GetMassDiffAcceptor(CommonParameters.PrecursorMassTolerance, SearchParameters.MassDiffAcceptorType, SearchParameters.CustomMdac);
+
+            var engine = new NonSpecificEnzymeSearchEngine(allPsmsArray, scans, indexResults.PeptideIndex, indexResults.FragmentIndex, indexResults.FragmentIndex, 
+                0, CommonParameters, massDiffAcceptor, 0, new List<string>());
+            var searchResults = engine.Run();
+
+            allPsmsArray[0].ResolveAllAmbiguities();
+
         }
     }
 }

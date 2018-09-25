@@ -27,7 +27,6 @@ namespace EngineLayer.Indexing
             sb.AppendLine("Number of proteins: " + ProteinList.Count);
             sb.AppendLine("Number of fixed mods: " + FixedModifications.Count);
             sb.AppendLine("Number of variable mods: " + VariableModifications.Count);
-            sb.AppendLine("lp: " + string.Join(",", ProductTypes));
             foreach (var digestionParams in CollectionOfDigestionParams)
             {
                 sb.AppendLine("protease: " + digestionParams.Protease);
