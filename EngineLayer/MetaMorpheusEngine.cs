@@ -248,47 +248,78 @@ namespace EngineLayer
             psm.percentDecoy = percentDecoy;
         }
 
-        public static IEnumerable<PeptideWithSetModifications> GetShuffledPeptides(PeptideWithSetModifications originalPeptide, int numShuffledPeptidesToGenerate, Random random)
+        private static string[] SplitPeptideIntoAminoAcids(PeptideWithSetModifications originalPeptide)
         {
             string[] temp = new string[originalPeptide.BaseSequence.Length];
 
+            for (int i = 0; i < temp.Length; i++)
+            {
+                temp[i] = "";
+            }
+
+            StringBuilder mod = new StringBuilder();
+            int aa = 0;
+            bool currentlyReadingMod = false;
+            int bracketCount = 0;
+
+            for (int r = 0; r < originalPeptide.FullSequence.Length; r++)
+            {
+                char c = originalPeptide.FullSequence[r];
+
+                switch (c)
+                {
+                    case '[':
+                        currentlyReadingMod = true;
+                        mod.Append(c);
+                        bracketCount++;
+                        break;
+
+                    case ']':
+                        bracketCount--;
+                        mod.Append(c);
+
+                        if (bracketCount == 0)
+                        {
+                            currentlyReadingMod = false;
+
+                            if (aa == 0)
+                            {
+                                temp[aa] += mod.ToString();
+                            }
+                            else
+                            {
+                                temp[aa - 1] += mod.ToString();
+                            }
+                            mod.Clear();
+                        }
+
+                        break;
+
+                    default:
+                        if (!currentlyReadingMod)
+                        {
+                            temp[aa] += c.ToString();
+                            mod.Clear();
+                            aa++;
+                        }
+                        else
+                        {
+                            mod.Append(c);
+                        }
+                        break;
+                }
+            }
+
+            return temp;
+        }
+
+        public static IEnumerable<PeptideWithSetModifications> GetShuffledPeptides(PeptideWithSetModifications originalPeptide, int numShuffledPeptidesToGenerate, Random random)
+        {
+            string[] temp;
+
             if (originalPeptide.AllModsOneIsNterminus.Any())
             {
-                string sequence = originalPeptide.FullSequence;
-                for (int m = 0; m < originalPeptide.AllModsOneIsNterminus.Count; m++)
-                {
-                    int startMod = sequence.IndexOf('[') - 1;
-                    int endMod = sequence.IndexOf(']');
-                    if (endMod < sequence.Length - 2 && sequence[endMod + 1] == ']')
-                        endMod++;
-                    string mod;
-                    string aa;
-
-                    if (startMod == -1)
-                    {
-                        // N-terminal mod
-                        startMod = 0;
-                        mod = sequence.Substring(startMod, endMod - startMod + 2);
-                        temp[startMod] = mod;
-                        aa = mod[endMod + 1].ToString();
-                    }
-                    else
-                    {
-                        mod = sequence.Substring(startMod, endMod - startMod + 1);
-                        temp[startMod] = mod;
-                        aa = mod[0].ToString();
-                    }
-
-                    sequence = sequence.Remove(startMod, endMod - startMod + 1).Insert(startMod, aa);
-                }
-
-                for (int a = 0; a < originalPeptide.BaseSequence.Length; a++)
-                {
-                    if (temp[a] == null)
-                    {
-                        temp[a] = originalPeptide.BaseSequence[a].ToString();
-                    }
-                }
+                temp = SplitPeptideIntoAminoAcids(originalPeptide);
             }
             else
             {
@@ -302,10 +333,10 @@ namespace EngineLayer
                 while (shuffledSequence == originalPeptide.FullSequence)
                 {
                     // Knuth shuffle algorithm
-                    for (int t = 0; t < temp.Length; t++)
+                    for (int t = 1; t < temp.Length - 1; t++)
                     {
                         string tmp = temp[t];
-                        int r = random.Next(t, temp.Length);
+                        int r = random.Next(t, temp.Length - 1);
                         temp[t] = temp[r];
                         temp[r] = tmp;
                     }

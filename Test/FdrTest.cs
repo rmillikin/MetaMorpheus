@@ -246,7 +246,7 @@ namespace Test
         {
             Random r = new Random(1);
             var proteinList = ProteinDbLoader.LoadProteinXML(
-                @"C:\Data\LVS_TD_Yeast\2018-09-10-14-05-34\Task1-GPTMDTask\yeastGPTMD.xml", true, 
+                @"C:\Data\LVS_TD_Yeast\2018-10-03-14-53-07\Task2-GPTMDTask\yeastGPTMD.xml", true, 
                 DecoyType.None, GlobalVariables.AllModsKnown, false, new List<string>(), out var um);
 
             var t = proteinList.Where(p => p.OneBasedPossibleLocalizedModifications.Count > 0).ToList();
@@ -265,6 +265,21 @@ namespace Test
                     Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == isoform.AllModsOneIsNterminus.Count));
                 }
             }
+        }
+
+        [Test]
+        public static void TestShuffledPeptide3()
+        {
+            string seq = "MAHENVWFSHPRRYGKGSRQCRVCSSHTGLIRKYGLNICRQCFREKANDIGFNKFR[Mod:Methyl on R][ProteinTermMod:C-Term Methyl on X]";
+
+            Random r = new Random(1);
+            PeptideWithSetModifications p = new PeptideWithSetModifications(seq, GlobalVariables.AllModsKnownDictionary);
+
+            int numShuffledToGenerate = 5;
+            var shuffledPeptides = MetaMorpheusEngine.GetShuffledPeptides(p, numShuffledToGenerate, r).ToList();
+            Assert.That(numShuffledToGenerate == shuffledPeptides.Count);
+            Assert.That(shuffledPeptides.All(v => v.FullSequence.Length == p.FullSequence.Length));
+            Assert.That(shuffledPeptides.All(v => v.AllModsOneIsNterminus.Count == p.AllModsOneIsNterminus.Count));
         }
     }
 }

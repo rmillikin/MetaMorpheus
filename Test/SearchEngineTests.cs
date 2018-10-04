@@ -533,7 +533,7 @@ namespace Test
                 dissociationType: DissociationType.HCD,
                 fragmentationTerminus: FragmentationTerminus.N,
                 productMassTolerance: productMassTolerance,
-                digestionParams: new DigestionParams(protease: protease.Name, minPeptideLength: 5, maxModsForPeptides: 2, semiProteaseDigestion: true),
+                digestionParams: new DigestionParams(protease: protease.Name, minPeptideLength: 5, maxModsForPeptides: 2),
                 scoreCutoff: 2,
                 addCompIons: true);
 
@@ -605,7 +605,7 @@ namespace Test
                 fragmentationTerminus: FragmentationTerminus.C,
                 scoreCutoff: 1,
                 productMassTolerance: productMassTolerance,
-                digestionParams: new DigestionParams(protease: protease.Name, maxMissedCleavages: 5, minPeptideLength: 5, semiProteaseDigestion: true, terminusTypeSemiProtease: FragmentationTerminus.C),
+                digestionParams: new DigestionParams(protease: protease.Name, maxMissedCleavages: 5, minPeptideLength: 5),
                 dissociationType: DissociationType.HCD,
                 addCompIons: true);
 
@@ -810,7 +810,7 @@ namespace Test
             var psm = allPsmsArray.Where(p => p != null).FirstOrDefault();
             Assert.That(psm.MatchedFragmentIons.Count > 50);
         }
-
+        
         [Test]
         public static void RobTestNonSpecific()
         {

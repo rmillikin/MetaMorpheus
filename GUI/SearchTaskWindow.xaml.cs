@@ -350,14 +350,14 @@ namespace MetaMorpheusGUI
 
             DigestionParams digestionParamsToSave = new DigestionParams(
                 protease: protease.Name,
-                semiProteaseDigestion: semiProteaseDigestion,
-                terminusTypeSemiProtease: terminusTypeSemiProtease,
                 maxMissedCleavages: maxMissedCleavages,
                 minPeptideLength: minPeptideLengthValue,
                 maxPeptideLength: maxPeptideLengthValue,
                 maxModificationIsoforms: maxModificationIsoformsValue,
                 initiatorMethionineBehavior: initiatorMethionineBehavior,
-                maxModsForPeptides: maxModsForPeptideValue);
+                maxModsForPeptides: maxModsForPeptideValue,
+                searchModeType: CleavageSpecificity.Full,
+                fragmentationTerminus: FragmentationTerminus.Both);
 
             Tolerance ProductMassTolerance;
             if (productMassToleranceComboBox.SelectedIndex == 0)

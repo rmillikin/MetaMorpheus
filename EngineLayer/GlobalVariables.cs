@@ -60,11 +60,11 @@ namespace EngineLayer
             UniprotDeseralized = UsefulProteomicsDatabases.Loaders.LoadUniprot(Path.Combine(DataDir, @"Data", @"ptmlist.txt"), formalChargesDictionary).ToList();
 
             foreach (var modFile in Directory.GetFiles(Path.Combine(DataDir, @"Mods")))
-                AddMods(UsefulProteomicsDatabases.PtmListLoader.ReadModsFromFile(modFile));
+                AddMods(UsefulProteomicsDatabases.PtmListLoader.ReadModsFromFile(modFile, out var errors));
 
             // TODO: need to add motif to Unimod/UniProt ID
             //AddMods(UnimodDeserialized.OfType<Modification>());
-            //AddMods(UniprotDeseralized.OfType<Modification>());
+            AddMods(UniprotDeseralized.OfType<Modification>());
 
             foreach (var mod in AllModsKnown)
             {

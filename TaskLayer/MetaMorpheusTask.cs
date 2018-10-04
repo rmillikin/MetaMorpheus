@@ -294,6 +294,9 @@ namespace TaskLayer
             {
                 Warn("Warning: " + emptyProteinEntries + " empty protein entries ignored");
             }
+
+            //UsefulProteomicsDatabases.ProteinDbWriter.WriteFastaDatabase(proteinList.Where(p => p.IsDecoy).ToList(), @"C:\Data\Yeast\REV.fasta", "|");
+
             return proteinList;
         }
 
