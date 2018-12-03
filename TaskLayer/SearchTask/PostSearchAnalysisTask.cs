@@ -133,19 +133,19 @@ namespace TaskLayer
         {
             if (Parameters.SearchParameters.DoLocalizationAnalysis)
             {
-                Status("Running mass-difference localization analysis...", Parameters.SearchTaskId);
-                for (int spectraFileIndex = 0; spectraFileIndex < Parameters.CurrentRawFileList.Count; spectraFileIndex++)
-                {
-                    CommonParameters combinedParams = SetAllFileSpecificCommonParams(CommonParameters, Parameters.FileSettingsList[spectraFileIndex]);
+                //Status("Running mass-difference localization analysis...", Parameters.SearchTaskId);
+                //for (int spectraFileIndex = 0; spectraFileIndex < Parameters.CurrentRawFileList.Count; spectraFileIndex++)
+                //{
+                //    CommonParameters combinedParams = SetAllFileSpecificCommonParams(CommonParameters, Parameters.FileSettingsList[spectraFileIndex]);
 
-                    var origDataFile = Parameters.CurrentRawFileList[spectraFileIndex];
-                    Status("Running mass-difference localization analysis...", new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile });
-                    MsDataFile myMsDataFile = Parameters.MyFileManager.LoadFile(origDataFile, combinedParams.TopNpeaks, combinedParams.MinRatio, combinedParams.TrimMs1Peaks, combinedParams.TrimMsMsPeaks, combinedParams);
-                    new LocalizationEngine(Parameters.AllPsms.Where(b => b.FullFilePath.Equals(origDataFile)).ToList(),
-                        myMsDataFile, combinedParams, new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile }).Run();
-                    Parameters.MyFileManager.DoneWithFile(origDataFile);
-                    ReportProgress(new ProgressEventArgs(100, "Done with localization analysis!", new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile }));
-                }
+                //    var origDataFile = Parameters.CurrentRawFileList[spectraFileIndex];
+                //    Status("Running mass-difference localization analysis...", new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile });
+                //    MsDataFile myMsDataFile = Parameters.MyFileManager.LoadFile(origDataFile, combinedParams.TopNpeaks, combinedParams.MinRatio, combinedParams.TrimMs1Peaks, combinedParams.TrimMsMsPeaks, combinedParams);
+                //    new LocalizationEngine(Parameters.AllPsms.Where(b => b.FullFilePath.Equals(origDataFile)).ToList(),
+                //        myMsDataFile, combinedParams, new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile }).Run();
+                //    Parameters.MyFileManager.DoneWithFile(origDataFile);
+                //    ReportProgress(new ProgressEventArgs(100, "Done with localization analysis!", new List<string> { Parameters.SearchTaskId, "Individual Spectra Files", origDataFile }));
+                //}
             }
 
             // count different modifications observed
@@ -661,7 +661,7 @@ namespace TaskLayer
                             {
                                 int proteinIdx = GetOneBasedIndexInProtein(idxModKV.Key, psm);
                                 SequenceVariation relevantVariant = psm.Protein.AppliedSequenceVariations.FirstOrDefault(sv => VariantApplication.IsSequenceVariantModification(sv, proteinIdx));
-                                SequenceVariation unappliedVariant = 
+                                SequenceVariation unappliedVariant =
                                     relevantVariant == null ? null : // it's not a sequence variant mod
                                     psm.Protein.SequenceVariations.FirstOrDefault(sv => sv.Description != null && sv.Description.Equals(relevantVariant.Description));
                                 modsObservedOnThisProtein.Add((VariantApplication.RestoreModificationIndex(psm.Protein, proteinIdx), idxModKV.Value, unappliedVariant));
@@ -897,7 +897,7 @@ namespace TaskLayer
             var fullSeqPath = Path.Combine(outputFolder, fileName + ".tsv");
 
             flashLFQResults.WriteResults(null, fullSeqPath, null);
-            
+
             FinishedWritingFile(fullSeqPath, nestedIds);
         }
 

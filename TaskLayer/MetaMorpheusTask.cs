@@ -91,6 +91,7 @@ namespace TaskLayer
         {
             var ms2Scans = myMSDataFile.GetAllScansList().Where(x => x.MsnOrder > 1).ToArray();
             List<Ms2ScanWithSpecificMass>[] scansWithPrecursors = new List<Ms2ScanWithSpecificMass>[ms2Scans.Length];
+            var temp = myMSDataFile.GetMS1Scans().ToArray();
 
             Parallel.ForEach(Partitioner.Create(0, ms2Scans.Length), new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
                 (partitionRange, loopState) =>
@@ -133,7 +134,10 @@ namespace TaskLayer
                                     commonParameters.DeconvolutionIntensityRatio))
                                 {
                                     var monoPeakMz = envelope.monoisotopicMass.ToMz(envelope.charge);
-                                    precursors.Add((monoPeakMz, envelope.charge));
+
+                                    var temp2 = GetAccuratePrecursorMass(envelope, precursorSpectrum, temp, commonParameters);
+
+                                    precursors.Add((temp2.ToMz(envelope.charge), envelope.charge));
                                 }
                             }
                         }
@@ -175,6 +179,148 @@ namespace TaskLayer
                 });
 
             return scansWithPrecursors.SelectMany(p => p);
+        }
+
+        private static double GetAccuratePrecursorMass(IsotopicEnvelope e, MsDataScan ms1scan, MsDataScan[] ms1scans, CommonParameters commonParameters)
+        {
+            if (e.monoisotopicMass < 5000 || commonParameters.DigestionParams.Protease.Name != "top-down" || e.peaks.Count < 3)
+            {
+                return e.monoisotopicMass;
+            }
+
+            int ms1scanIndexInArray = Array.IndexOf(ms1scans, ms1scan);
+            var ok = new List<IsotopicEnvelope>();
+            List<int> directions = new List<int> { -1, 1 };
+            foreach (var rtDirection in directions)
+            {
+                int rtStart = ms1scanIndexInArray;
+                if (rtDirection == 1)
+                {
+                    rtStart++;
+                }
+
+                for (int s = ms1scanIndexInArray; s < ms1scans.Length && s >= 0; s += rtDirection)
+                {
+                    var scan = ms1scans[s];
+                    bool observedInScan = false;
+
+                    foreach (var direction in directions)
+                    {
+                        int start = e.charge;
+                        if (direction == 1)
+                        {
+                            start++;
+                        }
+
+                        for (int z = start; z <= commonParameters.DeconvolutionMaxAssumedChargeState && z >= 1; z += direction)
+                        {
+                            List<(double mz, double intensity)> otherZEnvelopePeaks = new List<(double mz, double intensity)>();
+
+                            foreach (var peak in e.peaks)
+                            {
+                                double mass = peak.mz.ToMass(e.charge);
+                                double mz = mass.ToMz(z);
+                                int closest = scan.MassSpectrum.GetClosestPeakIndex(mz).Value;
+
+                                double closestMz = scan.MassSpectrum.XArray[closest];
+                                if (commonParameters.PrecursorMassTolerance.Within(mz, closestMz))
+                                {
+                                    otherZEnvelopePeaks.Add((closestMz, scan.MassSpectrum.YArray[closest]));
+                                }
+                                else
+                                {
+                                    otherZEnvelopePeaks.Add((0, 0));
+                                }
+                            }
+
+                            //if (otherZEnvelopePeaks.Count != e.peaks.Count)
+                            //{
+                            //    break;
+                            //}
+
+                            var i1 = e.peaks.Select(p => p.intensity).ToArray();
+                            var i2 = otherZEnvelopePeaks.Select(p => p.intensity).ToArray();
+
+                            double corr = MathNet.Numerics.Statistics.Correlation.Pearson(i1, i2);
+
+                            if (corr > 0.7)
+                            {
+                                otherZEnvelopePeaks.RemoveAll(p => p.mz == 0);
+
+                                if (otherZEnvelopePeaks.Count < 2)
+                                {
+                                    break;
+                                }
+
+                                otherZEnvelopePeaks.Sort((x, y) => x.mz.CompareTo(y.mz));
+                                double[] mzs = new double[otherZEnvelopePeaks.Count];
+                                double[] intensities = new double[otherZEnvelopePeaks.Count];
+
+                                for (int pk = 0; pk < otherZEnvelopePeaks.Count; pk++)
+                                {
+                                    mzs[pk] = otherZEnvelopePeaks[pk].mz;
+                                    intensities[pk] = otherZEnvelopePeaks[pk].intensity;
+                                }
+
+                                var testspectrum = new MzSpectrum(mzs, intensities, false);
+                                var t = testspectrum.Deconvolute(testspectrum.Range, z, z, 5.0, commonParameters.DeconvolutionIntensityRatio).ToList();
+                                var env = t.FirstOrDefault();
+                                if (env != null)
+                                {
+                                    ok.Add(env);
+                                    observedInScan = true;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!observedInScan)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            ok.Sort((x, y) => x.monoisotopicMass.CompareTo(y.monoisotopicMass));
+            var bestEnv = ok[(ok.Count - 1) / 2];
+
+            //Dictionary<int, List<IsotopicEnvelope>> massToScore = new Dictionary<int, List<IsotopicEnvelope>>();
+            //foreach (var env in ok)
+            //{
+            //    int mass = (int)Math.Round(env.monoisotopicMass - e.monoisotopicMass, 0);
+            //    if (massToScore.ContainsKey(mass))
+            //    {
+            //        massToScore[mass].Add(env);
+            //    }
+            //    else
+            //    {
+            //        massToScore.Add(mass, new List<IsotopicEnvelope> { env });
+            //    }
+            //}
+
+            //int bestMass = 0;
+            //double bestScore = 0;
+            //foreach (var mass in massToScore)
+            //{
+            //    double score = mass.Value.Sum(p => p.totalIntensity);
+            //    if (score > bestScore)
+            //    {
+            //        bestScore = score;
+            //        bestMass = mass.Key;
+            //    }
+            //}
+
+            //bestEnv = massToScore[bestMass].OrderByDescending(p => p.totalIntensity).First();
+
+            return bestEnv.monoisotopicMass;
         }
 
         public static CommonParameters SetAllFileSpecificCommonParams(CommonParameters commonParams, FileSpecificParameters fileSpecificParams)
@@ -520,7 +666,9 @@ namespace TaskLayer
             var ser = new NetSerializer.Serializer(messageTypes);
 
             using (var file = File.Create(fragmentIndexFile))
+            {
                 ser.Serialize(file, fragmentIndex);
+            }
         }
 
         private static string GetExistingFolderWithIndices(IndexingEngine indexEngine, List<DbForTask> dbFilenameList)
